@@ -1,32 +1,21 @@
-# Turtle Ecology Fix Simulation
+# Jeremy's Version of JEG2's Turtle Simulation
 
-This is the same simulation as before.  It is complete and runs.
+I attended the awesome [SimAlchemy](http://elixirconf.com/2016/speakers.html#grayii) workshop from [James Edward Gray II](http://graysoftinc.com/) at ElixirConf2016.  It was a workshop on Elixir processes and OTP; we used them to build simulations.
 
-The current code has a design flaw though.  The `Turtles.Clock` is coupled to `Turtles.Painter`.  The goal of this exercise is to break that coupling.
+This is my solution for a [life-and-death-and-sex turtle simulation that Gray started](https://github.com/JEG2/simulations/tree/master/turtles).  We actually got three versions of this code, and I solved all three of them.  This is technically the last of the three which was a fix to his internal representation of "changes" (clearing a square, putting a turtle, putting a plant).
 
-Fixing the design will expose drawing bugs.  Fixing those bugs requires simplifying how changes are managed in `Turtles.World`.
+The tests all pass, and the simulation works.  I've made my own additions and clean ups.  See the commits on this repo to see my changes.
 
-## Instructions
+## Running the tests
 
-1. Run `mix deps.get`
-2. Remove `Clock.advance(Clock)` in `Turtles.Painter`
-3. Make `Turtles.Clock` handle its own ticking by replacing `start_link/4` with:
+1. Clone this repo.
+1. `mix deps.get`
+1. `mix test`
 
-    ```elixir
-    def start_link(world, size, turtle_starter, options \\ [ ]) do
-      clock = %__MODULE__{world: world, size: size, turtle_starter: turtle_starter}
-      with {:ok, pid} = GenServer.start_link(__MODULE__, clock, options),
-           :timer.send_interval(300, pid, :tick),
-        do: {:ok, pid}
-    end
-   ```
+## Running the simulation
 
-4. Switch `Turtles.Clock`'s `handle_call(:tick, _from, clock = …)` to
-   `handle_info(:tick, clock = …)`
-5. Set `:paint_interval` to `100` in `lib/turtles.ex`
-6. Run `iex -S mix` to view the drawing bugs
-7. Replace `Turtles.World`'s empty changes with an empty list:  `[ ]`
-8. Fix the server callbacks in `Turtles.World` to build up changes of the form
-   `{:clear | :plant | :turtle, {x, y}}`
-9. Adjust `Turtles.Painter.paint/4` to draw the new change format
-10. Run `iex -S mix` to view the final simulation
+1. Clone this repo.
+1. `mix deps.get`
+1. `iex -S mix`
+
+Hit C-c C-c or C-\ to exit the simulation.

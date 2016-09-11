@@ -1,10 +1,6 @@
 defmodule ClockTest do
   use ExUnit.Case, async: true
 
-  ###############################
-  ### Tests start on line 57! ###
-  ###############################
-
   alias Turtles.{Clock, World}
 
   defmodule FakeTurtle do
@@ -58,17 +54,15 @@ defmodule ClockTest do
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
     {:ok, _clock} = Clock.start_link(world, @size, fake_turtle_starter)
     expected_count = round(elem(@size, 0) * elem(@size, 1) * 0.2)
-    assert length(World.changes(world).plants) == expected_count
+    assert length(World.plant_changes(world)) == expected_count
   end
 
-  @tag todo: true
   test "300 turtles are born at the dawn of time",
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
     {:ok, _clock} = Clock.start_link(world, @size, fake_turtle_starter)
-    assert length(World.changes(world).turtles) == 300
+    assert length(World.turtle_changes(world)) == 300
   end
 
-  @tag todo: true
   test "starts a process for each turtle as it is born",
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
     {:ok, _clock} = Clock.start_link(world, @size, fake_turtle_starter)
@@ -78,37 +72,37 @@ defmodule ClockTest do
     assert count == 300
   end
 
-  @tag todo: true
   test "instructs each turtle to act as time advances",
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
-    {:ok, clock} = Clock.start_link(world, @size, fake_turtle_starter)
-    Clock.advance(clock)
+    {:ok, clock} = Clock.start_link_without_tick(world, @size, fake_turtle_starter)
+    send clock, :tick
+    :timer.sleep(100)
     count = Agent.get(FakeTurtles, fn turtles ->
       Map.get(turtles, :act_count)
     end)
     assert count == 300
   end
 
-  @tag todo: true
   test "tracks new turtles born during the actions of others",
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
     {:ok, clock} = Clock.start_link(world, @size, fake_turtle_starter)
 
     Agent.update(FakeTurtles, fn turtles -> Map.put(turtles, :births, 1) end)
-    Clock.advance(clock)
+    send clock, :tick
+    :timer.sleep(100)
     count = Agent.get(FakeTurtles, fn turtles ->
       length(Map.get(turtles, :turtles))
     end)
     assert count == 301
 
-    Clock.advance(clock)
+    send clock, :tick
+    :timer.sleep(100)
     count = Agent.get(FakeTurtles, fn turtles ->
       Map.get(turtles, :act_count)
     end)
     assert count == 601
   end
 
-  @tag todo: true
   test "stops tracking turtles when they die",
        %{world: world, fake_turtle_starter: fake_turtle_starter} do
     {:ok, clock} = Clock.start_link(world, @size, fake_turtle_starter)
@@ -116,7 +110,8 @@ defmodule ClockTest do
       turtles = %{turtles: [death | rest]} -> {death, %{turtles | turtles: rest}}
     end)
     GenServer.stop(turtle)
-    Clock.advance(clock)
+    send clock, :tick
+    :timer.sleep(100)
     count = Agent.get(FakeTurtles, fn turtles ->
       Map.get(turtles, :act_count)
     end)

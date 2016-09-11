@@ -1,9 +1,19 @@
 defmodule Turtles.World do
   defmodule Changes do
-    defstruct clears: [ ], plants: [ ], turtles: [ ]
+    def clear(changes, location) do
+      [{:clear, location} | changes]
+    end
+
+    def plant(changes, location) do
+      [{:plant, location} | changes]
+    end
+
+    def turtle(changes, location) do
+      [{:turtle, location} | changes]
+    end
 
     def empty do
-      %__MODULE__{ }
+      []
     end
   end
 
@@ -61,21 +71,22 @@ defmodule Turtles.World do
   # Server API
 
   defp init(size = {width, height}) do
-    background = for x <- 0..(width - 1), y <- 0..(height - 1) do {x, y} end
-    %__MODULE__{size: size, changes: %Changes{clears: background}}
+    background = for x <- 0..(width - 1), y <- 0..(height - 1), do: {x, y}
+    changes = Enum.reduce(background, Changes.empty, &Changes.clear(&2,&1))
+    %__MODULE__{size: size, changes: changes}
   end
 
   defp handle_changes(world = %__MODULE__{changes: changes}) do
-    {changes, %__MODULE__{world | changes: Changes.empty}}
+    {Enum.reverse(changes), %__MODULE__{world | changes: Changes.empty}}
   end
 
   defp handle_place_plants(
     world = %__MODULE__{plants: plants, changes: changes},
     locations
   ) do
-    {new_plants, new_plant_changes} =
-      add_with_changes(plants, changes.plants, Enum.uniq(locations))
-    new_changes = %Changes{changes | plants: new_plant_changes}
+    unique_locations = MapSet.new(locations)
+    new_plants = MapSet.union(plants, unique_locations)
+    new_changes = Enum.reduce(unique_locations, changes, &Changes.plant(&2, &1))
     %__MODULE__{world | plants: new_plants, changes: new_changes}
   end
 
@@ -83,9 +94,9 @@ defmodule Turtles.World do
     world = %__MODULE__{turtles: turtles, changes: changes},
     locations
   ) do
-    {new_turtles, new_turtle_changes} =
-      add_with_changes(turtles, changes.turtles, Enum.uniq(locations))
-    new_changes = %Changes{changes | turtles: new_turtle_changes}
+    unique_locations = MapSet.new(locations)
+    new_turtles = MapSet.union(turtles, unique_locations)
+    new_changes = Enum.reduce(unique_locations, changes, &Changes.turtle(&2, &1))
     %__MODULE__{world | turtles: new_turtles, changes: new_changes}
   end
 
@@ -101,11 +112,10 @@ defmodule Turtles.World do
         new_turtles =
           MapSet.delete(turtles, location)
           |> MapSet.put(move_location)
-        new_changes = %Changes{
-          changes |
-          clears: [location | changes.clears],
-          turtles: [move_location | changes.turtles]
-        }
+        new_changes =
+          changes
+          |> Changes.clear(location)
+          |> Changes.turtle(move_location)
         {:moved, %__MODULE__{world | turtles: new_turtles, changes: new_changes}}
       true ->
         {:pass, world}
@@ -121,7 +131,7 @@ defmodule Turtles.World do
         eat(world, location)
       true ->
         new_turtles = MapSet.delete(turtles, location)
-        new_changes = %Changes{changes | clears: [location | changes.clears]}
+        new_changes = changes |> Changes.clear(location)
         {:died, %__MODULE__{world | turtles: new_turtles, changes: new_changes}}
     end
   end
@@ -132,29 +142,42 @@ defmodule Turtles.World do
   ) do
     if not MapSet.member?(turtles, new_location) do
       new_turtles = MapSet.put(turtles, new_location)
-      new_changes = %Changes{changes | turtles: [new_location | changes.turtles]}
+      new_changes = [{:turtle, new_location} | changes]
       {:birthed, %__MODULE__{world | turtles: new_turtles, changes: new_changes}}
     else
       {:pass, world}
     end
   end
 
-  # Helpers
+  ## Debugging-ish
 
-  defp add_with_changes(set, changes, [ ]), do: {set, changes}
-  defp add_with_changes(set, changes, [location | locations]) do
-    new_set = MapSet.put(set, location)
-    new_changes = [location | changes]
-    add_with_changes(new_set, new_changes, locations)
+  def clear_changes(world) do
+    filter_changes(world, :clear)
   end
+
+  def plant_changes(world) do
+    filter_changes(world, :plant)
+  end
+
+  def turtle_changes(world) do
+    filter_changes(world, :turtle)
+  end
+
+  defp filter_changes(world, type) do
+    world
+    |> changes
+    |> Enum.filter(fn {t, _} -> t == type end)
+    |> Enum.map(&elem(&1,1))
+  end
+
+  # Helpers
 
   defp eat(world = %__MODULE__{plants: plants, changes: changes}, location) do
     new_plants = MapSet.delete(plants, location)
-    new_changes = %Changes{
-      changes |
-      clears: [location | changes.clears],
-      turtles: [location | changes.turtles]
-    }
+    new_changes =
+      changes
+      |> Changes.clear(location)
+      |> Changes.turtle(location)
     {:ate, %__MODULE__{world | plants: new_plants, changes: new_changes}}
   end
 end

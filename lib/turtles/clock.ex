@@ -11,11 +11,15 @@ defmodule Turtles.Clock do
 
   def start_link(world, size, turtle_starter, options \\ [ ]) do
     clock = %__MODULE__{world: world, size: size, turtle_starter: turtle_starter}
-    GenServer.start_link(__MODULE__, clock, options)
+    with {:ok, pid} = GenServer.start_link(__MODULE__, clock, options),
+         :timer.send_interval(300, pid, :tick),
+      do: {:ok, pid}
   end
 
-  def advance(clock) do
-    GenServer.call(clock, :tick)
+  # FIXME: yucky version just for testing
+  def start_link_without_tick(world, size, turtle_starter, options \\ [ ]) do
+    clock = %__MODULE__{world: world, size: size, turtle_starter: turtle_starter}
+    GenServer.start_link(__MODULE__, clock, options)
   end
 
   # Server API
@@ -44,9 +48,8 @@ defmodule Turtles.Clock do
     {:ok, new_clock}
   end
 
-  def handle_call(
+  def handle_info(
     :tick,
-    _from,
     clock = %__MODULE__{
       world: world,
       size: size = {width, height},
@@ -68,7 +71,7 @@ defmodule Turtles.Clock do
         end
       end)
 
-    {:reply, :ok, %__MODULE__{clock | turtles: new_turtles}}
+    {:noreply, %__MODULE__{clock | turtles: new_turtles}}
   end
 
   def handle_info(
@@ -78,8 +81,9 @@ defmodule Turtles.Clock do
     # Logger.info "Turtles:  #{MapSet.size(turtles) - 1}"
     {:noreply, %__MODULE__{clock | turtles: MapSet.delete(turtles, pid)}}
   end
+
   def handle_info(message, clock) do
-    Logger.debug "Unexpected message:  #{message}"
+    Logger.debug "Clock got unexpected message:  #{message}"
     {:noreply, clock}
   end
 

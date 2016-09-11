@@ -1,16 +1,17 @@
 defmodule Turtles.Painter do
   alias Canvas.GUI.Brush
-  alias Turtles.{World, Clock}
+  alias Turtles.World
 
   def paint(canvas, _width, _height, scale) do
-    %{clears: clears, plants: plants, turtles: turtles} =
-      World.changes(World)
-
-    Enum.each(clears, fn location -> clear(canvas, scale, location) end)
-    Enum.each(plants, fn location -> paint_plant(canvas, scale, location) end)
-    Enum.each(turtles, fn location -> paint_turtle(canvas, scale, location) end)
-
-    Clock.advance(Clock)
+    World.changes(World)
+    |> Enum.each(fn
+      {:clear, location} ->
+        clear(canvas, scale, location)
+      {:plant, location} ->
+        paint_plant(canvas, scale, location)
+      {:turtle, location} ->
+        paint_turtle(canvas, scale, location)
+    end)
   end
 
   defp clear(canvas, scale, {x, y}) do

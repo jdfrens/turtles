@@ -76,7 +76,11 @@ defmodule TurtleTest do
     {:ok, turtle} =
       Turtle.start_link(world, @size, fake_turtle_starter, {0, 0}, :east, 15)
     Turtle.act(turtle)
-    assert hd(World.changes(world).turtles) in [{1, 9}, {1, 0}, {1, 1}]
+    {:turtle, loc} = World.changes(world) |> Enum.find(fn
+      {:turtle, _} -> true
+      _            -> false
+    end)
+    assert loc in [{1, 9}, {1, 0}, {1, 1}]
     assert Turtle.get_energy(turtle) == 7.5
   end
 end
